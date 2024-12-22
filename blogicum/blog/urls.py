@@ -36,7 +36,7 @@ urlpatterns = [
     path('', views.PostListView.as_view(), name='index'),
     
     # Детальная страница поста
-    path('posts/<int:pk>/', views.PostDetailView.as_view(), name='post_detail'),
+    path('posts/<int:post_id>/', views.PostDetailView.as_view(), name='post_detail'),
     
     # Посты по категориям
     path('category/<slug:category_slug>/', views.CategoryPostsView.as_view(), name='category_posts'),
@@ -51,13 +51,13 @@ urlpatterns = [
     path('edit_profile/', views.UserUpdateView.as_view(), name='edit_profile'),
     
     # Редактирование поста
-    path('posts/<int:pk>/edit/', views.PostUpdateView.as_view(), name='edit_post'),
+    path('posts/<int:post_id>/edit/', views.PostUpdateView.as_view(), name='edit_post'),
     
     # Удаление поста
-    path('posts/<int:pk>/delete/', views.PostDeleteView.as_view(), name='delete_post'),
+    path('posts/<int:post_id>/delete/', views.PostDeleteView.as_view(), name='delete_post'),
     
     # Добавление комментария
-    path('posts/<int:pk>/comment/', views.CommentCreateView.as_view(), name='add_comment'),
+    path('posts/<int:comment_id>/comment/', views.CommentCreateView.as_view(), name='add_comment'),
     
     # Редактирование комментария
     path('posts/<int:post_id>/edit_comment/<int:comment_id>/', views.CommentUpdateView.as_view(), name='edit_comment'),

@@ -155,7 +155,7 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
         """
         Проверяет права автора перед доступом к редактированию публикации.
         """
-        self.post_id = kwargs['pk']
+        self.post_id = kwargs['post_id']
         if self.get_object().author != request.user:
             return redirect('blog:post_detail', pk=self.post_id)
         return super().dispatch(request, *args, **kwargs)
@@ -181,7 +181,7 @@ class PostDetailView(DetailView):
         Ограничивает доступ к неопубликованным публикациям,
         если пользователь не является автором.
         """
-        post = get_object_or_404(Post, pk=self.kwargs['pk'])
+        post = get_object_or_404(Post, pk=self.kwargs['post_id'])
         if not post.is_published and post.author != self.request.user:
             raise Http404
         return super().get_queryset()
@@ -242,7 +242,7 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         Проверяет права доступа перед удалением публикации.
         Если пользователь не автор, перенаправляет на страницу публикации.
         """
-        self.post_id = kwargs['pk']
+        self.post_id = kwargs['post_id']
         if self.get_object().author != request.user:
             return redirect('blog:post_detail', pk=self.post_id)
         return super().dispatch(request, *args, **kwargs)
@@ -325,7 +325,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         form.instance.author = self.request.user
         form.instance.post = get_object_or_404(
             Post,
-            pk=self.kwargs['pk'],
+            pk=self.kwargs['comment_id'],
             pub_date__lte=timezone.now(),
             is_published=True,
             category__is_published=True,
