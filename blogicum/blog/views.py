@@ -43,8 +43,10 @@ from .models import Post, Category, User, Comment
 from .forms import PostForm, CommentForm, UserForm
 
 
-NUMBER_POSTS = 10
 
+def paginate_queryset(queryset, page_number, per_page=10):
+    paginator = Paginator(queryset, per_page)
+    return paginator.get_page(page_number)
 
 def get_posts(posts=Post.objects, filters=True, annotations=True):
     """
@@ -52,22 +54,21 @@ def get_posts(posts=Post.objects, filters=True, annotations=True):
     Фильтрация по умолчанию исключает неопубликованные и скрытые записи.
     Аннотирование добавляет счетчик комментариев к публикациям.
     """
-    queryset = posts.select_related(
-        'author',
-        'location',
-        'category'
-    )
+    queryset = posts.prefetch_related('author', 'location', 'category')
+
     if filters:
         queryset = queryset.filter(
             pub_date__lt=timezone.now(),
             is_published=True,
-            category__is_published=True,
+            category__is_published=True
         )
+    
     if annotations:
         queryset = queryset.annotate(
             comment_count=Count('comments')
-        ).order_by('-pub_date')
-    return queryset
+        )
+
+    return queryset.order_by('-pub_date', *Post._meta.ordering) if annotations else queryset
 
 
 class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -92,8 +93,7 @@ class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
         После успешного действия (редактирование/удаление) отправим пользователя
         обратно к посту, к которому привязан комментарий.
         """
-        post_id = self.kwargs.get('post_id')
-        return reverse('blog:post_detail', kwargs={'pk': post_id})
+        return reverse('blog:post_detail', args=[self.kwargs.get('post_pk')])
 
     def test_func(self):
         """
@@ -108,22 +108,12 @@ class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
 def profile(request, user_name):
     """
     Отображает профиль пользователя с его публикациями.
-    Сортирует публикации по времени создания и применяет пагинацию.
     """
     user = get_object_or_404(User, username=user_name)
-    posts = (
-        get_posts(filters=False).filter(author=user)
-    )
-    paginator = Paginator(posts, NUMBER_POSTS)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    posts = get_posts(filters=False).filter(author=user)
+    page_obj = paginate_queryset(posts, request.GET.get('page'))
 
-    context = {
-        'profile': user,
-        'page_obj': page_obj,
-    }
-    return render(request, 'blog/profile.html', context)
-
+    return render(request, 'blog/profile.html', {'profile': user, 'page_obj': page_obj})
 
 class PostListView(ListView):
     """
@@ -132,14 +122,14 @@ class PostListView(ListView):
     """
     model = Post
     template_name = 'blog/index.html'
-    paginate_by = NUMBER_POSTS
+    paginate_by = 10
 
     def get_queryset(self):
         """
         Возвращает список публикаций.
         """
-        post_list = get_posts()
-        return post_list
+        return get_posts()
+       
 
 
 class PostUpdateView(LoginRequiredMixin, UpdateView):
@@ -151,13 +141,24 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
     form_class = PostForm
     template_name = 'blog/create.html'
 
+    def get_object(self):
+        """
+        Ограничивает доступ к неопубликованным публикациям,
+        если пользователь не является автором.
+        """
+        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
+        if not post.is_published and post.author != self.request.user:
+            raise Http404
+        return post
+
     def dispatch(self, request, *args, **kwargs):
         """
         Проверяет права автора перед доступом к редактированию публикации.
         """
-        self.post_id = kwargs['post_id']
+       
+
         if self.get_object().author != request.user:
-            return redirect('blog:post_detail', pk=self.post_id)
+            return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -176,15 +177,15 @@ class PostDetailView(DetailView):
     model = Post
     template_name = 'blog/detail.html'
 
-    def get_queryset(self):
+    def get_object(self):
         """
         Ограничивает доступ к неопубликованным публикациям,
         если пользователь не является автором.
         """
-        post = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
         if not post.is_published and post.author != self.request.user:
             raise Http404
-        return super().get_queryset()
+        return post
 
     def get_context_data(self, **kwargs):
         """
@@ -230,6 +231,11 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
     """
     model = Post
     template_name = 'blog/create.html'
+    def get_object(self):
+        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
+        if not post.is_published and post.author != self.request.user:
+            raise Http404
+        return post
 
     def get_success_url(self):
         """
@@ -242,9 +248,8 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         Проверяет права доступа перед удалением публикации.
         Если пользователь не автор, перенаправляет на страницу публикации.
         """
-        self.post_id = kwargs['post_id']
         if self.get_object().author != request.user:
-            return redirect('blog:post_detail', pk=self.post_id)
+            return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -255,7 +260,7 @@ class CategoryPostsView(ListView):
     """
     model = Post
     template_name = 'blog/category.html'
-    paginate_by = NUMBER_POSTS
+    paginate_by = 10
 
     def get_queryset(self):
         """
@@ -325,7 +330,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         form.instance.author = self.request.user
         form.instance.post = get_object_or_404(
             Post,
-            pk=self.kwargs['comment_id'],
+            pk=self.kwargs['post_pk'],
             pub_date__lte=timezone.now(),
             is_published=True,
             category__is_published=True,
@@ -336,9 +341,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         """
         После успешного сохранения комментария перенаправляем на страницу поста.
         """
-        return reverse(
-            'blog:post_detail', kwargs={'pk': self.kwargs['pk']}
-        )
+        return reverse('blog:post_detail', args=[self.kwargs['post_pk']])
 
 
 class CommentDeleteView(CommentMixin, DeleteView):
