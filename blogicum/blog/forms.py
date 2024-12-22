@@ -32,6 +32,7 @@ class UserForm(forms.ModelForm):
 
 class PostForm(forms.ModelForm):
     """Форма для создания и редактирования постов."""
+    
     class Meta:
         model = Post
         exclude = ('author', 'created_at')

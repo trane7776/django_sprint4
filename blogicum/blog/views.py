@@ -42,7 +42,27 @@ from django.views.generic import (ListView,
 from .models import Post, Category, User, Comment
 from .forms import PostForm, CommentForm, UserForm
 
+class PostMutateMixin():
+    model = Post
+    form_class = PostForm
+    template_name = 'blog/create.html'
+    def get_object(self):
+        """
+        Ограничивает доступ к неопубликованным публикациям,
+        если пользователь не является автором.
+        """
+        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
+        if not post.is_published and post.author != self.request.user:
+            raise Http404
+        return post
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Проверяет права автора перед доступом к редактированию публикации.
+        """
+        if self.get_object().author != request.user:
+            return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
+        return super().dispatch(request, *args, **kwargs)
 
 def paginate_queryset(queryset, page_number, per_page=10):
     paginator = Paginator(queryset, per_page)
@@ -132,35 +152,11 @@ class PostListView(ListView):
        
 
 
-class PostUpdateView(LoginRequiredMixin, UpdateView):
+class PostUpdateView(LoginRequiredMixin, PostMutateMixin, UpdateView):
     """
     Позволяет автору редактировать свои публикации.
     Перенаправляет неавторизованных пользователей на страницу просмотра поста.
     """
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/create.html'
-
-    def get_object(self):
-        """
-        Ограничивает доступ к неопубликованным публикациям,
-        если пользователь не является автором.
-        """
-        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
-        if not post.is_published and post.author != self.request.user:
-            raise Http404
-        return post
-
-    def dispatch(self, request, *args, **kwargs):
-        """
-        Проверяет права автора перед доступом к редактированию публикации.
-        """
-       
-
-        if self.get_object().author != request.user:
-            return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
-        return super().dispatch(request, *args, **kwargs)
-
     def get_success_url(self):
         """
         Перенаправляет пользователя на его профиль после успешного редактирования.
@@ -224,33 +220,16 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return reverse('blog:profile', args=[self.request.user.username])
 
 
-class PostDeleteView(LoginRequiredMixin, DeleteView):
+class PostDeleteView(LoginRequiredMixin, PostMutateMixin, DeleteView):
     """
     Позволяет пользователям удалять свои публикации.
     Проверяет, является ли текущий пользователь автором перед удалением.
     """
-    model = Post
-    template_name = 'blog/create.html'
-    def get_object(self):
-        post = get_object_or_404(Post, pk=self.kwargs['post_pk'])
-        if not post.is_published and post.author != self.request.user:
-            raise Http404
-        return post
-
     def get_success_url(self):
         """
         Перенаправляет пользователя на его профиль после успешного удаления публикации.
         """
         return reverse('blog:profile', args=[self.request.user.username])
-
-    def dispatch(self, request, *args, **kwargs):
-        """
-        Проверяет права доступа перед удалением публикации.
-        Если пользователь не автор, перенаправляет на страницу публикации.
-        """
-        if self.get_object().author != request.user:
-            return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
-        return super().dispatch(request, *args, **kwargs)
 
 
 class CategoryPostsView(ListView):
