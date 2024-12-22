@@ -45,7 +45,7 @@ urlpatterns = [
     path('posts/create/', views.PostCreateView.as_view(), name='create_post'),
     
     # Профиль пользователя
-    path('profile/<slug:user_name>/', views.profile, name='profile'),
+    path('profile/<str:user_name>/', views.profile, name='profile'),
     
     # Редактирование профиля
     path('edit_profile/', views.UserUpdateView.as_view(), name='edit_profile'),
