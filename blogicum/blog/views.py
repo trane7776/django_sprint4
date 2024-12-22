@@ -68,29 +68,6 @@ def paginate_queryset(queryset, page_number, per_page=10):
     paginator = Paginator(queryset, per_page)
     return paginator.get_page(page_number)
 
-def get_posts(posts=Post.objects, filters=True, annotations=True):
-    """
-    Возвращает публикации с возможностью фильтрации и аннотирования.
-    Фильтрация по умолчанию исключает неопубликованные и скрытые записи.
-    Аннотирование добавляет счетчик комментариев к публикациям.
-    """
-    queryset = posts.prefetch_related('author', 'location', 'category')
-
-    if filters:
-        queryset = queryset.filter(
-            pub_date__lt=timezone.now(),
-            is_published=True,
-            category__is_published=True
-        )
-    
-    if annotations:
-        queryset = queryset.annotate(
-            comment_count=Count('comments')
-        )
-
-    return queryset.order_by('-pub_date', *Post._meta.ordering) if annotations else queryset
-
-
 class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
     """
     Этот миксин — супергерой для работы с комментариями.
@@ -130,7 +107,7 @@ def profile(request, user_name):
     Отображает профиль пользователя с его публикациями.
     """
     user = get_object_or_404(User, username=user_name)
-    posts = get_posts(filters=False).filter(author=user)
+    posts = user.posts.annotate(comment_count=Count('comments')).order_by('-pub_date')
     page_obj = paginate_queryset(posts, request.GET.get('page'))
 
     return render(request, 'blog/profile.html', {'profile': user, 'page_obj': page_obj})
@@ -148,7 +125,13 @@ class PostListView(ListView):
         """
         Возвращает список публикаций.
         """
-        return get_posts()
+        posts = (
+            self.model.objects
+            .filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True)
+            .annotate(comment_count=Count('comments'))
+            .order_by('-pub_date')
+        )
+        return posts
        
 
 
@@ -248,10 +231,11 @@ class CategoryPostsView(ListView):
         self.category = get_object_or_404(
             Category, slug=self.kwargs['category_slug'], is_published=True
         )
-        return get_posts(filters=False).filter(
-            pub_date__lte=timezone.now(),
-            is_published=True,
-            category=self.category,
+        return (
+            self.category.posts.filter(
+                pub_date__lte=timezone.now(),
+                is_published=True
+            ).order_by('-pub_date')
         )
 
     def get_context_data(self, **kwargs):

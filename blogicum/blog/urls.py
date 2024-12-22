@@ -7,12 +7,12 @@ urls.py
    - `/edit_profile/` — редактирование профиля.  
 2. публикации:  
    - `/posts/create/` — создание нового поста.  
-   - `/posts/<int:pk>/edit/` — редактирование поста.  
-   - `/posts/<int:pk>/delete/` — удаление поста.  
+   - `/posts/<int:post_pk>/edit/` — редактирование поста.  
+   - `/posts/<int:post_pk>/delete/` — удаление поста.  
 3. комментарии:  
-   - `/posts/<int:pk>/comment/` — добавить комментарий.  
-   - `/posts/<int:post_id>/edit_comment/<int:comment_id>/` — редактировать комментарий.  
-   - `/posts/<int:post_id>/delete_comment/<int:comment_id>/` — удалить комментарий.  
+   - `/posts/<int:post_pk>/comment/` — добавить комментарий.  
+   - `/posts/<int:post_pk>/edit_comment/<int:comment_id>/` — редактировать комментарий.  
+   - `/posts/<int:post_pk>/delete_comment/<int:comment_id>/` — удалить комментарий.  
 4. пагинация: категории и главная страница (`/category/<slug:category_slug>/` и `/`).
 
 Что важно:  
