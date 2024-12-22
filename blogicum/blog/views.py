@@ -107,7 +107,7 @@ def profile(request, user_name):
     Отображает профиль пользователя с его публикациями.
     """
     user = get_object_or_404(User, username=user_name)
-    posts = user.posts.annotate(comment_count=Count('comments')).order_by('-pub_date')
+    posts = user.posts.annotate(comment_count=Count('comments')).order_by(*Post._meta.ordering)
     page_obj = paginate_queryset(posts, request.GET.get('page'))
 
     return render(request, 'blog/profile.html', {'profile': user, 'page_obj': page_obj})
@@ -129,7 +129,7 @@ class PostListView(ListView):
             self.model.objects
             .filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True)
             .annotate(comment_count=Count('comments'))
-            .order_by('-pub_date')
+            .order_by(*Post._meta.ordering)
         )
         return posts
        
@@ -235,7 +235,7 @@ class CategoryPostsView(ListView):
             self.category.posts.filter(
                 pub_date__lte=timezone.now(),
                 is_published=True
-            ).order_by('-pub_date')
+            ).order_by(*Post._meta.ordering)
         )
 
     def get_context_data(self, **kwargs):

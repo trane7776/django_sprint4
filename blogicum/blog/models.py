@@ -101,7 +101,7 @@ class Post(BaseModel):
     class Meta:
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
-        ordering = ('created_at',)
+        ordering = ("-pub_date",)
 
 
 class Category(BaseModel):
