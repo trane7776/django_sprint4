@@ -112,6 +112,8 @@ class PostDetailView(DetailView):
         return context
 
 
+
+
 class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post
     form_class = PostForm

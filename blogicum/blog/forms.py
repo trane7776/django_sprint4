@@ -3,6 +3,7 @@ from .models import Post, User, Comment
 from django import forms
 
 
+
 class UserForm(forms.ModelForm):
     class Meta:
         model = User
