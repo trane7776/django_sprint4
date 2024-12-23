@@ -20,7 +20,7 @@ forms.py
 from .models import Post, User, Comment
 
 from django import forms
-
+from django.forms.widgets import DateTimeInput
 
 
 class UserForm(forms.ModelForm):
@@ -32,7 +32,17 @@ class UserForm(forms.ModelForm):
 
 class PostForm(forms.ModelForm):
     """Форма для создания и редактирования постов."""
-    
+    pub_date = forms.DateTimeField(
+        widget=DateTimeInput(attrs={'type': 'datetime-local'}),
+        label='Дата и время публикации',
+        required=True,
+        help_text=(
+            'Если установить дату и время в будущем — можно делать отложенные '
+            'публикации.'
+        )
+    )
+
+
     class Meta:
         model = Post
         exclude = ('author', 'created_at')

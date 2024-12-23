@@ -125,12 +125,8 @@ class PostListView(ListView):
         """
         Возвращает список публикаций.
         """
-        posts = (
-            self.model.objects
-            .filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True)
-            .annotate(comment_count=Count('comments'))
-            .order_by(*Post._meta.ordering)
-        )
+        posts = self.model.objects.filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True).annotate(comment_count=Count('comments')).order_by(*Post._meta.ordering)
+        
         return posts
        
 
