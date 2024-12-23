@@ -58,11 +58,16 @@ class PostMutateMixin():
 
     def dispatch(self, request, *args, **kwargs):
         """
-        Проверяет права автора перед доступом к редактированию публикации.
+        Проверяет права автора перед доступом к редактированию или удалению публикации.
         """
         if self.get_object().author != request.user:
             return redirect('blog:post_detail', post_pk=self.kwargs['post_pk'])
         return super().dispatch(request, *args, **kwargs)
+    def get_success_url(self):
+        """
+        Перенаправляет пользователя на его профиль после успешного удаления или редактирования публикации.
+        """
+        return reverse('blog:profile', args=[self.request.user.username])
 
 def paginate_queryset(queryset, page_number, per_page=10):
     paginator = Paginator(queryset, per_page)
@@ -124,24 +129,14 @@ class PostListView(ListView):
     def get_queryset(self):
         """
         Возвращает список публикаций.
-        """
-        posts = self.model.objects.filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True).annotate(comment_count=Count('comments')).order_by(*Post._meta.ordering)
-        
-        return posts
+        """ 
+        return (self.model.objects
+            .filter(pub_date__lt=timezone.now(), is_published=True, category__is_published=True)
+            .annotate(comment_count=Count('comments'))
+            .order_by(*Post._meta.ordering)
+        )
        
 
-
-class PostUpdateView(LoginRequiredMixin, PostMutateMixin, UpdateView):
-    """
-    Позволяет автору редактировать свои публикации.
-    Перенаправляет неавторизованных пользователей на страницу просмотра поста.
-    """
-    def get_success_url(self):
-        """
-        Перенаправляет пользователя на его профиль после успешного редактирования.
-        Это удобно для сохранения контекста работы.
-        """
-        return reverse('blog:profile', args=[self.request.user.username])
 
 
 class PostDetailView(DetailView):
@@ -198,17 +193,18 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         """
         return reverse('blog:profile', args=[self.request.user.username])
 
+class PostUpdateView(LoginRequiredMixin, PostMutateMixin, UpdateView):
+    """
+    Позволяет автору редактировать свои публикации.Подключается миксин для работы с постом
+    """
+    pass
 
 class PostDeleteView(LoginRequiredMixin, PostMutateMixin, DeleteView):
     """
-    Позволяет пользователям удалять свои публикации.
-    Проверяет, является ли текущий пользователь автором перед удалением.
+    Позволяет пользователям удалять свои публикации. Подключается миксин для работы с постом
     """
-    def get_success_url(self):
-        """
-        Перенаправляет пользователя на его профиль после успешного удаления публикации.
-        """
-        return reverse('blog:profile', args=[self.request.user.username])
+    pass
+
 
 
 class CategoryPostsView(ListView):
@@ -270,9 +266,6 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 class CommentCreateView(LoginRequiredMixin, CreateView):
     """
     Страница для тех, кто хочет оставить свой мудрый комментарий.
-    Только авторизованные пользователи могут писать, потому что анонимам не доверяем.
-    Проверяем, что пост существует и опубликован (иначе как комментировать-то?).
-    После сохранения — магический редирект на страницу этого самого поста.
     """
     model = Comment
     form_class = CommentForm
@@ -280,11 +273,8 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         """
-        Перед тем как сохранить комментарий, добавляем немного магии:
-        1. Автором автоматически становится текущий пользователь.
-        2. Связываем комментарий с постом, который комментируем.
-        Если с постом что-то не так (например, его не существует или он скрыт), —
-        покажем ошибку, чтобы всё было честно.
+        Автором автоматически становится текущий пользователь.
+        Связываем комментарий с постом, который комментируем.
         """
         form.instance.author = self.request.user
         form.instance.post = get_object_or_404(
@@ -305,8 +295,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
 
 class CommentDeleteView(CommentMixin, DeleteView):
     """
-    Удаление комментария. Всё просто: миксин проверяет, что ты — именно тот автор,
-    который имеет право удалить это чудо. Если всё ок — комментарий исчезает.
+    Удаление комментария через миксин. 
     """
     pass
 
